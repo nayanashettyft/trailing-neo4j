@@ -32,7 +32,6 @@ def create_path_nodes(tx, path):
                 tx.run( "MATCH (a:path),(b:path) WHERE a.name=$parent_node AND b.name=$node_name MERGE (a)-[r:contains]->(b)", 
                     parent_node=parent_node, node_name=node_name )
             parent_node = node_name
-            
 
 def create_path_node(tx, path):
     tx.run( "MERGE (n:path{name:$path})", path=path)
