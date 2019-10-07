@@ -1,0 +1,4 @@
+account,homedir,virtualpath
+blah,/home/blah,
+foo,/home/foo,/home/blah
+bar,/home/bar,/home/blah/bar
