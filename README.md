@@ -1,6 +1,6 @@
 # trailing-neo4j
 
-This is a python module to create a graph database to visualise the connection between SFTP accounts and the folders on the servers.
+This is a python module to create a graph database to visualise the connection between SFTP accounts and their folders on the servers.
 
 ## Pre-requisitues
 
@@ -25,5 +25,5 @@ This is a python module to create a graph database to visualise the connection b
 ## Running the script
 
 ```sh
-python trial.py
+python sftp_accounts_visualization.py
 ```
