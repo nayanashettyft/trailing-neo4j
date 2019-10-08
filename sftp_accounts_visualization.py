@@ -4,32 +4,34 @@ import csv
 # Login credentials
 user = "neo4j"
 password = "password"
-address = "localhost:24780"
 
 uri = "bolt://localhost:7687"
 driver = GraphDatabase.driver(uri, auth=("neo4j", password))
 
-def process_account_data(tx, name, homedir, virtualpath):
-    create_account_node(tx, name, homedir, virtualpath)
+def process_account_data(tx, name, homedir, virtualpath_list):
+    create_account_node(tx, name, homedir, virtualpath_list)
+    create_path_node(tx, "/")
     create_path_nodes(tx, homedir)
-    if virtualpath:
-        create_path_nodes(tx, virtualpath)
+    if virtualpath_list:
+        for virtualpath in virtualpath_list:
+            create_path_nodes(tx, virtualpath)
 
-
-def create_account_node(tx, name, homedir, virtualpath):
+def create_account_node(tx, name, homedir, virtualpath_list):
     tx.run( "MERGE (n:account{name:$name, homedir:$homedir, virtualpath:$virtualpath})",
-            name=name, homedir=homedir, virtualpath=virtualpath)
+            name=name, homedir=homedir, virtualpath=virtualpath_list)
 
 def create_path_nodes(tx, path):
     path_hierarchy = path.split("/")
     node_name = ""
-    parent_node = ""
+    parent_node = "/"
     for node in path_hierarchy:
         if node:
-            node_name += "/" + node
+            if parent_node == "/":
+                node_name = parent_node + node
+            else:
+                node_name +=  "/" + node
             create_path_node(tx, node_name)
-            if parent_node:
-                tx.run( "MATCH (a:path),(b:path) WHERE a.name=$parent_node AND b.name=$node_name MERGE (a)-[r:contains]->(b)", 
+            tx.run( "MATCH (a:path),(b:path) WHERE a.name=$parent_node AND b.name=$node_name MERGE (a)-[r:contains]->(b)", 
                     parent_node=parent_node, node_name=node_name )
             parent_node = node_name
 
@@ -40,20 +42,31 @@ def add_homedir_relation(tx):
     tx.run( "MATCH (a:account),(b:path) WHERE a.homedir = b.name MERGE (a)-[r:homedir]->(b)" )
 
 def add_virtualpath_relation(tx):
-    tx.run( "MATCH (a:account),(b:path) WHERE a.virtualpath = b.name MERGE (b)-[r:virtualpath]->(a)" )
+    tx.run( "MATCH (a:account),(b:path) WHERE b.name in a.virtualpath MERGE (a)-[r:virtualpath]->(b)" )
 
-with open('accountlist.csv', mode='r') as csv_file:
+def get_virtualpath_list(vpaths):
+    start_sep='PhysicalPath,'
+    end_sep=',VirtualPath'
+    result=[]
+    tmp=vpaths.split(start_sep)
+    for par in tmp:
+        if end_sep in par:
+            result.append(par.split(end_sep)[0])
+    return result
+
+with open('AccountsDump.csv', mode='r') as csv_file:
     csv_reader = csv.DictReader(csv_file)
     line_count = 0
     for row in csv_reader:
         if line_count == 0:
             print(f'Column names are {", ".join(row)}')
             line_count += 1
-        accountname = row["account"]
-        homedir = row["homedir"]
-        virtualpath = row["virtualpath"] if row["virtualpath"] else 0
+        accountname = row["LoginID"]
+        homedir = row["HomeDir"]
+        virtualpaths = row["VirtualPath"] if row["VirtualPath"] else 0
+        virtualpath_list = get_virtualpath_list(virtualpaths) if virtualpaths else 0
         with driver.session() as session:
-            session.write_transaction(process_account_data, accountname, homedir, virtualpath)
+            session.write_transaction(process_account_data, accountname, homedir, virtualpath_list)
         line_count += 1
     print(f'Processed {line_count} lines.')
 
